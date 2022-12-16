@@ -34,11 +34,18 @@ type ImagePair struct {
 	bytes []byte
 }
 
+const (
+	MimePng  = "image/png"
+	MimeJpeg = "image/jpeg"
+)
+
 var (
-	ErrRequest         = errors.New("request error")
-	ErrDownload        = errors.New("unable to download a file")
-	ErrServerNotExists = errors.New("remove server doesn't exist")
-	ErrFileRead        = errors.New("unable to read a file")
+	ErrRequest          = errors.New("request error")
+	ErrDownload         = errors.New("unable to download a file")
+	ErrServerNotExists  = errors.New("remove server doesn't exist")
+	ErrFileRead         = errors.New("unable to read a file")
+	ErrFileNotSupported = errors.New("unsupported file type")
+	ErrNotEnoughImage   = errors.New("not enough images to compare")
 )
 
 func New(logger Logger, config Config, recognitionClient RecognitionClient) (*Application, error) {
@@ -51,13 +58,22 @@ func New(logger Logger, config Config, recognitionClient RecognitionClient) (*Ap
 
 func (app *Application) CompareImages(urls []string) (string, []string, []error) {
 
-	imagesBytes := app.downloadImagesByUrls(urls)
-
 	urlsCnt := len(urls)
+
+	if urlsCnt < 2 {
+		return "", []string{}, []error{ErrNotEnoughImage}
+	}
+
+	unmatched := make([]string, 0, urlsCnt)
+
+	imagesBytes, errs := app.downloadImagesByUrls(urls)
+
+	if len(imagesBytes) < 2 {
+		return "", []string{}, []error{fmt.Errorf("%w: some of the images were probably filtered", ErrNotEnoughImage)}
+	}
+
 	source := imagesBytes[0]
 	targets := imagesBytes[1:]
-	unmatched := make([]string, 0, urlsCnt)
-	errs := make([]error, 0, urlsCnt)
 
 	for _, target := range targets {
 		unmatchedCnt, err := app.RecognitionClient.CompareFaces(source.bytes, target.bytes)
@@ -75,17 +91,29 @@ func (app *Application) CompareImages(urls []string) (string, []string, []error)
 	return source.url, unmatched, errs
 }
 
-func (app *Application) downloadImagesByUrls(urls []string) []ImagePair {
+func (app *Application) downloadImagesByUrls(urls []string) ([]ImagePair, []error) {
 
-	imagePairs := make([]ImagePair, len(urls))
-	for i, url := range urls {
-		bytes, err := app.downloadByURL(url)
-		if err == nil {
-			imagePairs[i] = ImagePair{url, bytes}
+	imagePairs := make([]ImagePair, 0, len(urls))
+	errs := make([]error, 0, len(imagePairs))
+
+	for _, url := range urls {
+		imageBytes, err := app.downloadByURL(url)
+
+		if err != nil {
+			errs = append(errs, err)
+			continue
 		}
+
+		err = app.extensionValidate(imageBytes)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("%w: %s", err, url))
+			continue
+		}
+
+		imagePairs = append(imagePairs, ImagePair{url, imageBytes})
 	}
 
-	return imagePairs
+	return imagePairs, errs
 }
 
 func (app *Application) downloadByURL(url string) ([]byte, error) {
@@ -106,10 +134,21 @@ func (app *Application) downloadByURL(url string) ([]byte, error) {
 	}
 	defer response.Body.Close()
 
-	bytes, err := io.ReadAll(response.Body)
+	responseBytes, err := io.ReadAll(response.Body)
 	if err != nil {
 		return []byte{}, fmt.Errorf("%w: %s", ErrFileRead, err)
 	}
 
-	return bytes, nil
+	return responseBytes, nil
+}
+
+func (app *Application) extensionValidate(imageBytes []byte) error {
+
+	mimeType := http.DetectContentType(imageBytes)
+
+	if mimeType != MimePng && mimeType != MimeJpeg {
+		return ErrFileNotSupported
+	}
+
+	return nil
 }
