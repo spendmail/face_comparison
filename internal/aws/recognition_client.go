@@ -42,7 +42,7 @@ func NewRecognitionClient(config Config, logger Logger) (*Client, error) {
 	}, nil
 }
 
-func (c *Client) CompareFaces(source, target []byte) (int, error) {
+func (c *Client) CompareFaces(source, target []byte) (int, int, error) {
 
 	input := &rekognition.CompareFacesInput{
 		SimilarityThreshold: aws.Float64(c.config.GetSimilarityThreshold()),
@@ -56,33 +56,34 @@ func (c *Client) CompareFaces(source, target []byte) (int, error) {
 
 	result, err := c.svc.CompareFaces(input)
 	unmatchedFacesCnt := len(result.UnmatchedFaces)
+	matchedFacesCnt := len(result.FaceMatches)
 
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case rekognition.ErrCodeInvalidParameterException:
-				return unmatchedFacesCnt, fmt.Errorf("%s: %w", rekognition.ErrCodeInvalidParameterException, aerr)
+				return unmatchedFacesCnt, matchedFacesCnt, fmt.Errorf("%s: %w", rekognition.ErrCodeInvalidParameterException, aerr)
 			case rekognition.ErrCodeInvalidS3ObjectException:
-				return unmatchedFacesCnt, fmt.Errorf("%s: %w", rekognition.ErrCodeInvalidS3ObjectException, aerr)
+				return unmatchedFacesCnt, matchedFacesCnt, fmt.Errorf("%s: %w", rekognition.ErrCodeInvalidS3ObjectException, aerr)
 			case rekognition.ErrCodeImageTooLargeException:
-				return unmatchedFacesCnt, fmt.Errorf("%s: %w", rekognition.ErrCodeImageTooLargeException, aerr)
+				return unmatchedFacesCnt, matchedFacesCnt, fmt.Errorf("%s: %w", rekognition.ErrCodeImageTooLargeException, aerr)
 			case rekognition.ErrCodeAccessDeniedException:
-				return unmatchedFacesCnt, fmt.Errorf("%s: %w", rekognition.ErrCodeAccessDeniedException, aerr)
+				return unmatchedFacesCnt, matchedFacesCnt, fmt.Errorf("%s: %w", rekognition.ErrCodeAccessDeniedException, aerr)
 			case rekognition.ErrCodeInternalServerError:
-				return unmatchedFacesCnt, fmt.Errorf("%s: %w", rekognition.ErrCodeInternalServerError, aerr)
+				return unmatchedFacesCnt, matchedFacesCnt, fmt.Errorf("%s: %w", rekognition.ErrCodeInternalServerError, aerr)
 			case rekognition.ErrCodeThrottlingException:
-				return unmatchedFacesCnt, fmt.Errorf("%s: %w", rekognition.ErrCodeThrottlingException, aerr)
+				return unmatchedFacesCnt, matchedFacesCnt, fmt.Errorf("%s: %w", rekognition.ErrCodeThrottlingException, aerr)
 			case rekognition.ErrCodeProvisionedThroughputExceededException:
-				return unmatchedFacesCnt, fmt.Errorf("%s: %w", rekognition.ErrCodeProvisionedThroughputExceededException, aerr)
+				return unmatchedFacesCnt, matchedFacesCnt, fmt.Errorf("%s: %w", rekognition.ErrCodeProvisionedThroughputExceededException, aerr)
 			case rekognition.ErrCodeInvalidImageFormatException:
-				return unmatchedFacesCnt, fmt.Errorf("%s: %w", rekognition.ErrCodeInvalidImageFormatException, aerr)
+				return unmatchedFacesCnt, matchedFacesCnt, fmt.Errorf("%s: %w", rekognition.ErrCodeInvalidImageFormatException, aerr)
 			default:
-				return unmatchedFacesCnt, fmt.Errorf("compare faces error: %w", aerr)
+				return unmatchedFacesCnt, matchedFacesCnt, fmt.Errorf("compare faces error: %w", aerr)
 			}
 		} else {
-			return unmatchedFacesCnt, fmt.Errorf("compare faces error: %w", err)
+			return unmatchedFacesCnt, matchedFacesCnt, fmt.Errorf("compare faces error: %w", err)
 		}
 	}
 
-	return unmatchedFacesCnt, nil
+	return unmatchedFacesCnt, matchedFacesCnt, nil
 }
