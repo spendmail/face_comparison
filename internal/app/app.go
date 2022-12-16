@@ -71,8 +71,8 @@ func (app *Application) CompareImages(urls []string) (string, []string, []string
 	facesNotFound := make([]string, 0, urlsCnt)
 
 	// downloading images
-	imagesBytes, errs := app.downloadImagesByUrls(urls)
-	//imagesBytes, errs := app.downloadImagesByUrlsConcurrently(urls)
+	//imagesBytes, errs := app.downloadImagesByUrls(urls)
+	imagesBytes, errs := app.downloadImagesByUrlsWithChannels(urls)
 
 	// not enough photos after filtering
 	if len(imagesBytes) < 2 {
@@ -83,24 +83,75 @@ func (app *Application) CompareImages(urls []string) (string, []string, []string
 	source := imagesBytes[0]
 	targets := imagesBytes[1:]
 
+	cnt := len(targets)
+	unmatchedChan := make(chan string, cnt)
+	multipleFacesChan := make(chan string, cnt)
+	facesNotFoundChan := make(chan string, cnt)
+	errsChan := make(chan error, cnt)
+
+	wg := sync.WaitGroup{}
+
 	// faces comparison
 	for _, target := range targets {
-		unmatchedCnt, matchedCnt, err := app.RecognitionClient.CompareFaces(source.bytes, target.bytes)
+		wg.Add(1)
+		go func(p ImagePair) {
+			defer wg.Done()
+			unmatchedCnt, matchedCnt, err := app.RecognitionClient.CompareFaces(source.bytes, p.bytes)
 
-		if unmatchedCnt == 1 {
-			unmatched = append(unmatched, target.url)
-		} else if unmatchedCnt > 1 {
-			multipleFaces = append(multipleFaces, target.url)
-		}
+			if unmatchedCnt == 1 {
+				unmatchedChan <- p.url
+			} else if unmatchedCnt > 1 {
+				multipleFacesChan <- p.url
+			}
 
-		if unmatchedCnt == 0 && matchedCnt == 0 {
-			facesNotFound = append(facesNotFound, target.url)
-		}
+			if unmatchedCnt == 0 && matchedCnt == 0 {
+				facesNotFoundChan <- p.url
+			}
 
-		if err != nil {
-			e := fmt.Errorf("unable to compare images %s and %s: %w", source.url, target.url, err)
-			errs = append(errs, e)
+			if err != nil {
+				e := fmt.Errorf("unable to compare images %s and %s: %w", source.url, p.url, err)
+				errsChan <- e
+			}
+		}(target)
+	}
+
+	wg.Wait()
+
+	close(unmatchedChan)
+	close(multipleFacesChan)
+	close(facesNotFoundChan)
+	close(errsChan)
+
+	for {
+		val, ok := <-unmatchedChan
+		if !ok {
+			break
 		}
+		unmatched = append(unmatched, val)
+	}
+
+	for {
+		val, ok := <-multipleFacesChan
+		if !ok {
+			break
+		}
+		multipleFaces = append(multipleFaces, val)
+	}
+
+	for {
+		val, ok := <-facesNotFoundChan
+		if !ok {
+			break
+		}
+		facesNotFound = append(facesNotFound, val)
+	}
+
+	for {
+		val, ok := <-errsChan
+		if !ok {
+			break
+		}
+		errs = append(errs, val)
 	}
 
 	return source.url, unmatched, multipleFaces, facesNotFound, errs
@@ -131,12 +182,15 @@ func (app *Application) downloadImagesByUrls(urls []string) ([]ImagePair, []erro
 	return imagePairs, errs
 }
 
-func (app *Application) downloadImagesByUrlsConcurrently(urls []string) ([]ImagePair, []error) {
+func (app *Application) downloadImagesByUrlsWithChannels(urls []string) ([]ImagePair, []error) {
 
-	imagePairs := make([]ImagePair, 0, len(urls))
-	errs := make([]error, 0, len(imagePairs))
+	urlsLen := len(urls)
+	imagePairs := make([]ImagePair, 0, urlsLen)
+	errs := make([]error, 0, urlsLen)
 	var wg sync.WaitGroup
-	var mu = &sync.RWMutex{}
+
+	errsChan := make(chan error, urlsLen)
+	pairsChan := make(chan ImagePair, urlsLen)
 
 	for _, url := range urls {
 
@@ -147,25 +201,39 @@ func (app *Application) downloadImagesByUrlsConcurrently(urls []string) ([]Image
 			imageBytes, err := app.downloadByURL(url)
 
 			if err != nil {
-				errs = append(errs, err)
+				errsChan <- err
 				return
 			}
 
 			err = app.extensionValidate(imageBytes)
 			if err != nil {
-				mu.Lock()
-				errs = append(errs, fmt.Errorf("%w: %s", err, url))
-				mu.Unlock()
+				errsChan <- fmt.Errorf("%w: %s", err, url)
 				return
 			}
 
-			mu.Lock()
-			imagePairs = append(imagePairs, ImagePair{url, imageBytes})
-			mu.Unlock()
+			pairsChan <- ImagePair{url, imageBytes}
 		}(url)
 	}
 
 	wg.Wait()
+	close(errsChan)
+	close(pairsChan)
+
+	for {
+		e, ok := <-errsChan
+		if !ok {
+			break
+		}
+		errs = append(errs, e)
+	}
+
+	for {
+		pair, ok := <-pairsChan
+		if !ok {
+			break
+		}
+		imagePairs = append(imagePairs, pair)
+	}
 
 	return imagePairs, errs
 }
