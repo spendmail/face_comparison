@@ -1,0 +1,30 @@
+version: '3.7'
+
+services:
+  integration_tests:
+    build: ../test
+    container_name: face_comparison_test_bdd
+    command: 'true'
+    environment:
+      TESTS_HTTP_HOST: 'http://face_comparison:8888'
+      WAIT_HOSTS: face_comparison:8888
+    depends_on:
+      - face_comparison
+    links:
+      - face_comparison
+
+  face_comparison:
+    build:
+      context: ../
+      dockerfile: build/Dockerfile
+      args:
+        - LDFLAGS=$LDFLAGS
+        - CONFIG_FILE_NAME=$CONFIG_FILE_NAME
+    container_name: face_comparison_test
+    restart: on-failure
+    ports:
+      - '8888:8888'
+    expose:
+      - 8888
+    volumes:
+      - ./logs/:/tmp/

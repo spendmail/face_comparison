@@ -1,0 +1,7 @@
+logs/
+bin/
+help/
+.idea/
+configs/face_comparison.prod.toml
+configs/face_comparison.toml
+configs/face_comparison.docker.toml

@@ -1,0 +1,14 @@
+[logger]
+level = "debug"
+file = "/tmp/face_comparison.log"
+
+[http]
+host = "0.0.0.0"
+port = 8888
+secret = "secret"
+
+[aws]
+access_key_id = "access_key_id"
+secret_access_key = "secret_access_key"
+region = "us-east-1"
+similarity_threshold = 90.000000
