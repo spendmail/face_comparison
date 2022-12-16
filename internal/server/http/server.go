@@ -91,7 +91,7 @@ func (h *Handler) compareHandler(w http.ResponseWriter, r *http.Request) {
 	// request decoding
 	err := json.NewDecoder(r.Body).Decode(&cr)
 	if err != nil {
-		rsp.Errors = []string{fmt.Sprintf("unable to decode the response: %s", err.Error())}
+		rsp.Errors = []string{fmt.Sprintf("unable to decode the request: %s", err.Error())}
 		SendComparisonResponse(w, h, rsp)
 		return
 	}
