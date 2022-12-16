@@ -42,7 +42,7 @@ const (
 var (
 	ErrRequest          = errors.New("request error")
 	ErrDownload         = errors.New("unable to download a file")
-	ErrServerNotExists  = errors.New("remove server doesn't exist")
+	ErrServerNotExists  = errors.New("remote server doesn't exist")
 	ErrFileRead         = errors.New("unable to read a file")
 	ErrFileNotSupported = errors.New("unsupported file type")
 	ErrNotEnoughImage   = errors.New("not enough images to compare")
