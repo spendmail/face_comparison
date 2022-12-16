@@ -56,30 +56,38 @@ func New(logger Logger, config Config, recognitionClient RecognitionClient) (*Ap
 	}, nil
 }
 
-func (app *Application) CompareImages(urls []string) (string, []string, []error) {
+func (app *Application) CompareImages(urls []string) (string, []string, []string, []error) {
 
 	urlsCnt := len(urls)
 
+	// not enough photos
 	if urlsCnt < 2 {
-		return "", []string{}, []error{ErrNotEnoughImage}
+		return "", []string{}, []string{}, []error{ErrNotEnoughImage}
 	}
 
 	unmatched := make([]string, 0, urlsCnt)
+	multipleFaces := make([]string, 0, urlsCnt)
 
+	// downloading images
 	imagesBytes, errs := app.downloadImagesByUrls(urls)
 
+	// not enough photos after filtering
 	if len(imagesBytes) < 2 {
-		return "", []string{}, []error{fmt.Errorf("%w: some of the images were probably filtered", ErrNotEnoughImage)}
+		errs = append(errs, fmt.Errorf("%w: some of the images were probably filtered", ErrNotEnoughImage))
+		return "", []string{}, []string{}, errs
 	}
 
 	source := imagesBytes[0]
 	targets := imagesBytes[1:]
 
+	// faces comparison
 	for _, target := range targets {
 		unmatchedCnt, err := app.RecognitionClient.CompareFaces(source.bytes, target.bytes)
 
-		if unmatchedCnt > 0 {
+		if unmatchedCnt == 1 {
 			unmatched = append(unmatched, target.url)
+		} else if unmatchedCnt > 1 {
+			multipleFaces = append(multipleFaces, target.url)
 		}
 
 		if err != nil {
@@ -88,7 +96,7 @@ func (app *Application) CompareImages(urls []string) (string, []string, []error)
 		}
 	}
 
-	return source.url, unmatched, errs
+	return source.url, unmatched, multipleFaces, errs
 }
 
 func (app *Application) downloadImagesByUrls(urls []string) ([]ImagePair, []error) {
