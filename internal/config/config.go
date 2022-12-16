@@ -25,9 +25,10 @@ type LoggerConf struct {
 }
 
 type HTTPConf struct {
-	Host   string
-	Port   string
-	Secret string
+	Host                   string
+	Port                   string
+	Secret                 string
+	FaceComparisonRouteTpl string
 }
 
 type AWSConf struct {
@@ -61,6 +62,7 @@ func New(path string) (*Config, error) {
 			viper.GetString("http.host"),
 			viper.GetString("http.port"),
 			viper.GetString("http.secret"),
+			viper.GetString("http.face_comparison_route_tpl"),
 		},
 		AWSConf{
 			viper.GetString("aws.access_key_id"),
@@ -89,6 +91,10 @@ func (c *Config) GetHTTPPort() string {
 
 func (c *Config) GetSecret() string {
 	return c.HTTP.Secret
+}
+
+func (c *Config) GetFaceComparisonRouteTpl() string {
+	return c.HTTP.FaceComparisonRouteTpl
 }
 
 func (c *Config) GetAccessKeyId() string {

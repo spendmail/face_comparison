@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"sync"
 )
 
 type Logger interface {
@@ -71,6 +72,7 @@ func (app *Application) CompareImages(urls []string) (string, []string, []string
 
 	// downloading images
 	imagesBytes, errs := app.downloadImagesByUrls(urls)
+	//imagesBytes, errs := app.downloadImagesByUrlsConcurrently(urls)
 
 	// not enough photos after filtering
 	if len(imagesBytes) < 2 {
@@ -125,6 +127,45 @@ func (app *Application) downloadImagesByUrls(urls []string) ([]ImagePair, []erro
 
 		imagePairs = append(imagePairs, ImagePair{url, imageBytes})
 	}
+
+	return imagePairs, errs
+}
+
+func (app *Application) downloadImagesByUrlsConcurrently(urls []string) ([]ImagePair, []error) {
+
+	imagePairs := make([]ImagePair, 0, len(urls))
+	errs := make([]error, 0, len(imagePairs))
+	var wg sync.WaitGroup
+	var mu = &sync.RWMutex{}
+
+	for _, url := range urls {
+
+		wg.Add(1)
+		go func(url string) {
+			defer wg.Done()
+
+			imageBytes, err := app.downloadByURL(url)
+
+			if err != nil {
+				errs = append(errs, err)
+				return
+			}
+
+			err = app.extensionValidate(imageBytes)
+			if err != nil {
+				mu.Lock()
+				errs = append(errs, fmt.Errorf("%w: %s", err, url))
+				mu.Unlock()
+				return
+			}
+
+			mu.Lock()
+			imagePairs = append(imagePairs, ImagePair{url, imageBytes})
+			mu.Unlock()
+		}(url)
+	}
+
+	wg.Wait()
 
 	return imagePairs, errs
 }
