@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	URLComparePattern = "/compare/"
+	URLComparePattern = "/face-comparison/compare/"
 )
 
 type Config interface {
@@ -64,7 +64,6 @@ func New(config Config, logger Logger, app Application) *Server {
 }
 
 type ComparisonRequest struct {
-	Secret string   `json:"secret"`
 	URLs   []string `json:"urls"`
 }
 
@@ -98,7 +97,8 @@ func (h *Handler) compareHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//secret checking
-	if cr.Secret != h.Config.GetSecret() {
+	secret := r.URL.Query().Get("secret")
+	if secret != h.Config.GetSecret() {
 		rsp.Errors = []string{ErrWrongSecret.Error()}
 		SendComparisonResponse(w, h, rsp)
 		return
