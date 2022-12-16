@@ -72,8 +72,6 @@ func (app *Application) CompareImages(urls []string) (string, []string, []error)
 		}
 	}
 
-	errs = append(errs, errors.New("testing error"))
-
 	return source.url, unmatched, errs
 }
 
