@@ -10,14 +10,11 @@ import (
 	"net/http"
 )
 
-const (
-	URLComparePattern = "/face-comparison/compare/"
-)
-
 type Config interface {
 	GetHTTPHost() string
 	GetHTTPPort() string
 	GetSecret() string
+	GetFaceComparisonRouteTpl() string
 }
 
 type Logger interface {
@@ -50,7 +47,7 @@ func New(config Config, logger Logger, app Application) *Server {
 	}
 
 	router := mux.NewRouter()
-	router.HandleFunc(URLComparePattern, handler.compareHandler).Methods(http.MethodPost)
+	router.HandleFunc(config.GetFaceComparisonRouteTpl(), handler.compareHandler).Methods(http.MethodPost)
 
 	server := &http.Server{
 		Addr:    net.JoinHostPort(config.GetHTTPHost(), config.GetHTTPPort()),
@@ -64,7 +61,7 @@ func New(config Config, logger Logger, app Application) *Server {
 }
 
 type ComparisonRequest struct {
-	URLs   []string `json:"urls"`
+	URLs []string `json:"urls"`
 }
 
 type ComparisonResponse struct {
