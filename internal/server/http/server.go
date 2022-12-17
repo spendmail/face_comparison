@@ -25,7 +25,7 @@ type Logger interface {
 }
 
 type Application interface {
-	CompareImages(urls []string) (string, []string, []string, []string, []error)
+	CompareImages(urls []string) (string, []string, []string, []string, string, []error)
 }
 
 type Server struct {
@@ -70,6 +70,7 @@ type ComparisonResponse struct {
 	MultipleFaces []string `json:"multiple_faces"`
 	FacesNotFound []string `json:"faces_not_found"`
 	Errors        []string `json:"errors"`
+	Gender        string   `json:"gender"`
 }
 
 var (
@@ -102,7 +103,7 @@ func (h *Handler) compareHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// images processing
-	source, unmatched, multipleFaces, facesNotFound, errs := h.App.CompareImages(cr.URLs)
+	source, unmatched, multipleFaces, facesNotFound, gender, errs := h.App.CompareImages(cr.URLs)
 
 	// converting errors to string
 	strErrs := make([]string, len(errs))
@@ -115,6 +116,7 @@ func (h *Handler) compareHandler(w http.ResponseWriter, r *http.Request) {
 	rsp.Unmatched = unmatched
 	rsp.MultipleFaces = multipleFaces
 	rsp.FacesNotFound = facesNotFound
+	rsp.Gender = gender
 	rsp.Errors = strErrs
 
 	SendComparisonResponse(w, h, rsp)

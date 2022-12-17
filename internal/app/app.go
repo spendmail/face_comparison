@@ -22,6 +22,7 @@ type Config interface {
 
 type RecognitionClient interface {
 	CompareFaces(source, target []byte) (int, int, error)
+	PredictGender(source []byte) (string, error)
 }
 
 type Application struct {
@@ -57,13 +58,13 @@ func New(logger Logger, config Config, recognitionClient RecognitionClient) (*Ap
 	}, nil
 }
 
-func (app *Application) CompareImages(urls []string) (string, []string, []string, []string, []error) {
+func (app *Application) CompareImages(urls []string) (string, []string, []string, []string, string, []error) {
 
 	urlsCnt := len(urls)
 
 	// not enough photos
 	if urlsCnt < 2 {
-		return "", []string{}, []string{}, []string{}, []error{ErrNotEnoughImage}
+		return "", []string{}, []string{}, []string{}, "", []error{ErrNotEnoughImage}
 	}
 
 	unmatched := make([]string, 0, urlsCnt)
@@ -77,7 +78,7 @@ func (app *Application) CompareImages(urls []string) (string, []string, []string
 	// not enough photos after filtering
 	if len(imagesBytes) < 2 {
 		errs = append(errs, fmt.Errorf("%w: some of the images were probably filtered", ErrNotEnoughImage))
-		return "", []string{}, []string{}, []string{}, errs
+		return "", []string{}, []string{}, []string{}, "", errs
 	}
 
 	source := imagesBytes[0]
@@ -154,7 +155,12 @@ func (app *Application) CompareImages(urls []string) (string, []string, []string
 		errs = append(errs, val)
 	}
 
-	return source.url, unmatched, multipleFaces, facesNotFound, errs
+	gender, err := app.RecognitionClient.PredictGender(source.bytes)
+	if err != nil {
+		errs = append(errs, fmt.Errorf("%s: %w", source.url, err))
+	}
+
+	return source.url, unmatched, multipleFaces, facesNotFound, gender, errs
 }
 
 func (app *Application) downloadImagesByUrls(urls []string) ([]ImagePair, []error) {

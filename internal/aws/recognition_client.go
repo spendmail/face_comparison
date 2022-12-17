@@ -7,6 +7,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/rekognition"
+	"github.com/pkg/errors"
+	"strings"
 )
 
 type Config interface {
@@ -40,6 +42,29 @@ func NewRecognitionClient(config Config, logger Logger) (*Client, error) {
 		logger: logger,
 		svc:    rekognition.New(session.New(), awsConfig),
 	}, nil
+}
+
+func (c *Client) PredictGender(source []byte) (string, error) {
+
+	attr := "ALL"
+	input := &rekognition.DetectFacesInput{
+		Attributes: []*string{&attr},
+		Image: &rekognition.Image{
+			Bytes: source,
+		},
+	}
+
+	result, err := c.svc.DetectFaces(input)
+
+	if err != nil {
+		return "", fmt.Errorf("unable to predict gender by photo: %w", err)
+	}
+
+	for _, details := range result.FaceDetails {
+		return strings.ToLower(*details.Gender.Value), nil
+	}
+
+	return "", errors.New("unable to predict gender by photo")
 }
 
 func (c *Client) CompareFaces(source, target []byte) (int, int, error) {
