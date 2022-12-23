@@ -28,6 +28,7 @@ type HTTPConf struct {
 	Host                   string
 	Port                   string
 	Secret                 string
+	HealthCheckRouteTpl    string
 	FaceComparisonRouteTpl string
 }
 
@@ -62,6 +63,7 @@ func New(path string) (*Config, error) {
 			viper.GetString("http.host"),
 			viper.GetString("http.port"),
 			viper.GetString("http.secret"),
+			viper.GetString("http.health_check_route_tpl"),
 			viper.GetString("http.face_comparison_route_tpl"),
 		},
 		AWSConf{
@@ -91,6 +93,10 @@ func (c *Config) GetHTTPPort() string {
 
 func (c *Config) GetSecret() string {
 	return c.HTTP.Secret
+}
+
+func (c *Config) GetHealthCheckRouteTpl() string {
+	return c.HTTP.HealthCheckRouteTpl
 }
 
 func (c *Config) GetFaceComparisonRouteTpl() string {

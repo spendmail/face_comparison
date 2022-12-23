@@ -6,6 +6,8 @@ file = "/tmp/face_comparison.log"
 host = "0.0.0.0"
 port = 8888
 secret = "secret"
+health_check_route_tpl = "/health-check/"
+face_comparison_route_tpl = "/compare/"
 
 [aws]
 access_key_id = "access_key_id"

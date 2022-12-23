@@ -8,12 +8,14 @@ import (
 	"github.com/gorilla/mux"
 	"net"
 	"net/http"
+	"strconv"
 )
 
 type Config interface {
 	GetHTTPHost() string
 	GetHTTPPort() string
 	GetSecret() string
+	GetHealthCheckRouteTpl() string
 	GetFaceComparisonRouteTpl() string
 }
 
@@ -47,6 +49,7 @@ func New(config Config, logger Logger, app Application) *Server {
 	}
 
 	router := mux.NewRouter()
+	router.HandleFunc(config.GetHealthCheckRouteTpl(), handler.healthCheckHandler).Methods(http.MethodGet)
 	router.HandleFunc(config.GetFaceComparisonRouteTpl(), handler.compareHandler).Methods(http.MethodPost)
 
 	server := &http.Server{
@@ -76,6 +79,15 @@ type ComparisonResponse struct {
 var (
 	ErrWrongSecret = errors.New("wrong secret code")
 )
+
+func (h *Handler) healthCheckHandler(w http.ResponseWriter, r *http.Request) {
+	bytes := []byte("OK")
+	w.Header().Set("Content-Type", http.DetectContentType(bytes))
+	w.Header().Set("Content-Length", strconv.Itoa(len(bytes)))
+	if _, err := w.Write(bytes); err != nil {
+		h.Logger.Error(err)
+	}
+}
 
 func (h *Handler) compareHandler(w http.ResponseWriter, r *http.Request) {
 	var cr ComparisonRequest
