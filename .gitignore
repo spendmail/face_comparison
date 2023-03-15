@@ -2,9 +2,10 @@ logs/
 bin/
 help/
 .idea/
-configs/face_comparison.prod.toml
-configs/face_comparison.prod.secondary.toml
-configs/face_comparison.toml
 configs/face_comparison.docker.toml
+configs/face_comparison.example.toml
+configs/face_comparison.prod.secondary.toml
+configs/face_comparison.prod.toml
 configs/face_comparison.testing.toml
+configs/face_comparison.toml
 
